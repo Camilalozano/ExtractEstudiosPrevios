@@ -359,18 +359,30 @@ def export_rows_to_xlsx(rows: List[Dict[str, object]], output_path: Path) -> Non
 
 
 def main() -> None:
-    if len(sys.argv) < 2:
-        print("Uso: python extractor_estudios_previos.py <ruta_zip> [ruta_salida_xlsx]")
-        sys.exit(1)
+    if len(sys.argv) >= 2 and sys.argv[1].strip():
+        zip_input = sys.argv[1].strip()
+    else:
+        zip_input = input("Ingrese la ruta del archivo .zip de entrada: ").strip()
 
-    zip_path = Path(sys.argv[1].strip().strip('"'))
+    if not zip_input:
+        raise ValueError("Debe ingresar la ruta del archivo ZIP de entrada.")
+
+    zip_path = Path(zip_input.strip('"'))
     if not zip_path.exists():
         raise FileNotFoundError(f"No existe el archivo ZIP: {zip_path}")
 
     if len(sys.argv) >= 3 and sys.argv[2].strip():
-        output_path = Path(sys.argv[2].strip().strip('"'))
+        output_dir_input = sys.argv[2].strip()
     else:
-        output_path = zip_path.with_name("estudios_previos_extraidos.xlsx")
+        output_dir_input = input(
+            'Ingrese la ruta de la carpeta donde desea guardar el output "estudios_previos_extraidos": '
+        ).strip()
+
+    if not output_dir_input:
+        raise ValueError("Debe ingresar la ruta de salida para guardar el archivo Excel.")
+
+    output_dir = Path(output_dir_input.strip('"')).expanduser()
+    output_path = output_dir / "estudios_previos_extraidos.xlsx"
 
     rows = process_zip(zip_path)
     export_rows_to_xlsx(rows, output_path)
