@@ -358,6 +358,24 @@ def export_rows_to_xlsx(rows: List[Dict[str, object]], output_path: Path) -> Non
 
 
 
+
+
+def merge_with_metadata(output_path: Path, metadata_path: Path) -> None:
+    import pandas as pd
+
+    estudios_previos_extraidos = pd.read_excel(output_path)
+    Metadatos_SIGA_EstudiosPrevios = pd.read_excel(metadata_path)
+
+    merged = estudios_previos_extraidos.merge(
+        Metadatos_SIGA_EstudiosPrevios,
+        how="left",
+        left_on="archivo_pdf",
+        right_on="IMGANX_NOMBRE",
+    )
+
+    merged.to_excel(output_path, index=False)
+
+
 def main() -> None:
     if len(sys.argv) >= 2 and sys.argv[1].strip():
         zip_input = sys.argv[1].strip()
@@ -386,6 +404,19 @@ def main() -> None:
 
     rows = process_zip(zip_path)
     export_rows_to_xlsx(rows, output_path)
+
+    metadata_input = input(
+        "Ingrese la ruta del archivo con  metadatos básicos del contrato asociados a cada uno de los Estudios Previo relacionados en SIGA"
+    ).strip()
+
+    if not metadata_input:
+        raise ValueError("Debe ingresar la ruta del archivo con metadatos de SIGA.")
+
+    metadata_path = Path(metadata_input.strip('"')).expanduser()
+    if not metadata_path.exists():
+        raise FileNotFoundError(f"No existe el archivo de metadatos: {metadata_path}")
+
+    merge_with_metadata(output_path, metadata_path)
     print(f"\nProceso terminado. Excel guardado en: {output_path}")
 
 
