@@ -140,13 +140,126 @@ def extract_text_from_pdf_bytes(pdf_bytes: bytes) -> str:
 
 
 
+
+SECTION_2_HEADING_RE = re.compile(
+    r"(?im)^\s*2\s*[.\-]\s*(?:ESPECIFICACIONES|DESCRIPCI[ÓO]N)\s+DEL\s+OBJETO\s+A\s+CONTRATAR\b.*$"
+)
+
+SECTION_2_END_RE = re.compile(
+    r"(?im)^\s*3\s*[.\-]\s*(?:MODALIDAD|FUNDAMENTOS|JUSTIFICACI[ÓO]N|CRITERIOS|AN[ÁA]LISIS|ESTUDIO|GARANT[ÍI]AS)\b"
+)
+
+OBJETO_LABEL_RE = re.compile(
+    r"(?im)^\s*(?:[a-z0-9]+\s*[\.\)]\s*)?OBJETO\s*:?\s*(?!A\s+CONTRATAR\b|,)(.*)$"
+)
+
+NEXT_OBJECT_FIELD_RE = re.compile(
+    r"(?im)^\s*(?:[a-z0-9]+\s*[\.\)]\s*)?"
+    r"(?:TIPO\s+DE\s+CONTRATO|CODIFICACI[ÓO]N\s+CLASIFICADOR|CLASIFICADOR\s+DE\s+BIENES\s+Y\s+SERVICIOS|"
+    r"PLAZO\s+DE\s+EJECUCI[ÓO]N|VALOR\s+DEL\s+CONTRATO|CERTIFICADO\s+DE\s+DISPONIBILIDAD\s+PRESUPUESTAL|"
+    r"FORMA\s+DE\s+PAGO|OBLIGACIONES\s+GENERALES|OBLIGACIONES\s+ESPEC[ÍI]FICAS|SUPERVISI[ÓO]N|GARANT[ÍI]AS)\s*:?"
+)
+
+CONTRACT_OBJECT_VERB_RE = re.compile(
+    r"\b(?:Prestar|Contratar|Adquirir|Suministrar|Realizar|Brindar|Apoyar|Desarrollar|Ejecutar|Implementar|"
+    r"Fortalecer|Aunar|Celebrar)\b",
+    re.IGNORECASE,
+)
+
+
 def get_specs_section(text: str) -> str:
-    m = re.search(
-        r"2\.\s*ESPECIFICACIONES DEL OBJETO A CONTRATAR(.+?)(?=\n\s*3\.\s*MODALIDAD DE SELECCI[ÓO]N Y JUSTIFICACI[ÓO]N DE LA MISMA)",
-        text,
-        re.IGNORECASE | re.DOTALL,
-    )
-    return clean_section_text(m.group(1)) if m else text
+    """
+    Ubica el bloque 2 de los Estudios Previos.
+
+    Mejora frente a la regla anterior:
+    - Acepta "2. ESPECIFICACIONES DEL OBJETO A CONTRATAR".
+    - Acepta "2. DESCRIPCIÓN DEL OBJETO A CONTRATAR".
+    - Corta al inicio del numeral 3, aunque el título del numeral 3 tenga variaciones.
+    - Elimina encabezados/pies de página antes de buscar los campos.
+    """
+    text = clean_section_text(text)
+    matches = list(SECTION_2_HEADING_RE.finditer(text))
+    if not matches:
+        return text
+
+    chosen = matches[0]
+    for match in matches:
+        window = text[match.end(): match.end() + 8000]
+        if OBJETO_LABEL_RE.search(window):
+            chosen = match
+            break
+
+    start = chosen.end()
+    end_match = SECTION_2_END_RE.search(text, start)
+    end = end_match.start() if end_match else len(text)
+    return clean_section_text(text[start:end])
+
+
+
+def clean_objeto_text(block: str) -> str:
+    """
+    Limpieza específica del campo OBJETO.
+    Evita que queden códigos, encabezados o fragmentos ajenos antes del verbo contractual.
+    """
+    block = clean_section_text(block)
+    block = re.sub(r"^(?:[a-z0-9]+\s*[\.\)]\s*)?OBJETO\s*:?\s*", "", block, flags=re.IGNORECASE).strip()
+
+    verb_match = CONTRACT_OBJECT_VERB_RE.search(block)
+    if verb_match and 0 < verb_match.start() < 120:
+        prefix = block[:verb_match.start()]
+        # Si antes del verbo solo hay códigos, consecutivos, separadores o texto basura de extracción, se elimina.
+        has_meaningful_words = bool(re.search(r"[A-Za-zÁÉÍÓÚÑáéíóúñ]{4,}\s+[A-Za-zÁÉÍÓÚÑáéíóúñ]{4,}", prefix))
+        has_code_noise = bool(re.search(r"\d|_|-|/", prefix))
+        if has_code_noise or not has_meaningful_words:
+            block = block[verb_match.start():]
+
+    block = re.sub(r"\s+", " ", block)
+    return block.strip(" .;:\n\t")
+
+
+
+def extract_objeto(text: str) -> str:
+    """
+    Extrae el OBJETO contractual dentro del numeral 2, usando como ancla el campo real
+    "OBJETO" y no el título "ESPECIFICACIONES DEL OBJETO A CONTRATAR".
+
+    Regla:
+    1. Buscar el numeral 2 de especificaciones/descripción del objeto.
+    2. Dentro de ese bloque, buscar una línea tipo:
+       - a. OBJETO:
+       - 1. OBJETO:
+       - OBJETO:
+       - OBJETO
+    3. Tomar el texto posterior hasta el siguiente campo estructural:
+       TIPO DE CONTRATO, CODIFICACIÓN, PLAZO, VALOR, FORMA DE PAGO, OBLIGACIONES, etc.
+    4. Limpiar pies de página, saltos y códigos residuales.
+    """
+    section = get_specs_section(text)
+    candidates = []
+
+    for match in OBJETO_LABEL_RE.finditer(section):
+        start = match.start(1) if match.group(1).strip() else match.end()
+        next_field = NEXT_OBJECT_FIELD_RE.search(section, start)
+        end = next_field.start() if next_field else len(section)
+
+        candidate = clean_objeto_text(section[start:end])
+        if candidate:
+            candidates.append(candidate)
+
+    if not candidates:
+        return ""
+
+    def score_candidate(candidate: str) -> float:
+        score = 0.0
+        if CONTRACT_OBJECT_VERB_RE.match(candidate):
+            score += 100
+        if 40 <= len(candidate) <= 1200:
+            score += 50
+        # Se favorecen textos de longitud razonable; se penalizan textos demasiado largos o demasiado cortos.
+        score -= abs(len(candidate) - 250) / 100
+        return score
+
+    return max(candidates, key=score_candidate)
 
 
 
@@ -163,17 +276,6 @@ def extract_fecha_elaboracion(text: str) -> str:
         if m:
             return normalize_inline(m.group(1))
     return ""
-
-
-
-def extract_objeto(text: str) -> str:
-    text = get_specs_section(text)
-    m = re.search(
-        r"OBJETO\s*:?[\s]*(.+?)(?=\n\s*(?:[a-z]\.\s*)?TIPO DE CONTRATO\s*:?)",
-        text,
-        re.IGNORECASE | re.DOTALL,
-    )
-    return normalize_inline(m.group(1)) if m else ""
 
 
 
