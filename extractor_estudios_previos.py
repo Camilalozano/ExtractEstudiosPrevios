@@ -199,20 +199,33 @@ def get_specs_section(text: str) -> str:
 def clean_objeto_text(block: str) -> str:
     """
     Limpieza específica del campo OBJETO.
-    Evita que queden códigos, encabezados o fragmentos ajenos antes del verbo contractual.
+
+    IMPORTANTE:
+    No se eliminan códigos, consecutivos ni prefijos ubicados antes del verbo contractual,
+    porque hacen parte del objeto y son necesarios para la trazabilidad contractual.
+
+    Ejemplo de prefijos que deben conservarse:
+    - 8029_1_85940 _GE_PSA_026
+    - GE_PSA_026
+    - 8029_1_85940
+
+    La limpieza se limita a:
+    - quitar nuevamente la etiqueta OBJETO si quedó pegada al bloque;
+    - eliminar pies de página/encabezados mediante clean_section_text;
+    - normalizar espacios y saltos de línea.
     """
     block = clean_section_text(block)
-    block = re.sub(r"^(?:[a-z0-9]+\s*[\.\)]\s*)?OBJETO\s*:?\s*", "", block, flags=re.IGNORECASE).strip()
 
-    verb_match = CONTRACT_OBJECT_VERB_RE.search(block)
-    if verb_match and 0 < verb_match.start() < 120:
-        prefix = block[:verb_match.start()]
-        # Si antes del verbo solo hay códigos, consecutivos, separadores o texto basura de extracción, se elimina.
-        has_meaningful_words = bool(re.search(r"[A-Za-zÁÉÍÓÚÑáéíóúñ]{4,}\s+[A-Za-zÁÉÍÓÚÑáéíóúñ]{4,}", prefix))
-        has_code_noise = bool(re.search(r"\d|_|-|/", prefix))
-        if has_code_noise or not has_meaningful_words:
-            block = block[verb_match.start():]
+    # Quita únicamente la etiqueta del campo si quedó repetida al inicio.
+    # No elimina códigos o prefijos posteriores a OBJETO.
+    block = re.sub(
+        r"^(?:[a-z0-9]+\s*[\.\)]\s*)?OBJETO\s*:?\s*",
+        "",
+        block,
+        flags=re.IGNORECASE,
+    ).strip()
 
+    # Normaliza espacios sin borrar prefijos como 8029_1_85940 _GE_PSA_026.
     block = re.sub(r"\s+", " ", block)
     return block.strip(" .;:\n\t")
 
@@ -232,7 +245,7 @@ def extract_objeto(text: str) -> str:
        - OBJETO
     3. Tomar el texto posterior hasta el siguiente campo estructural:
        TIPO DE CONTRATO, CODIFICACIÓN, PLAZO, VALOR, FORMA DE PAGO, OBLIGACIONES, etc.
-    4. Limpiar pies de página, saltos y códigos residuales.
+    4. Limpiar pies de página y saltos, conservando códigos/prefijos iniciales del objeto.
     """
     section = get_specs_section(text)
     candidates = []
