@@ -166,6 +166,8 @@ CONTRACT_OBJECT_VERB_RE = re.compile(
     re.IGNORECASE,
 )
 
+OBJETO_ALCANCE_RE = re.compile(r"\bALCANCE\s+DEL\s+OBJETO\b\s*:?.*$", re.IGNORECASE | re.DOTALL)
+
 
 def get_specs_section(text: str) -> str:
     """
@@ -211,6 +213,7 @@ def clean_objeto_text(block: str) -> str:
 
     La limpieza se limita a:
     - quitar nuevamente la etiqueta OBJETO si quedó pegada al bloque;
+    - eliminar desde "ALCANCE DEL OBJETO" hasta el final del bloque;
     - eliminar pies de página/encabezados mediante clean_section_text;
     - normalizar espacios y saltos de línea.
     """
@@ -224,6 +227,10 @@ def clean_objeto_text(block: str) -> str:
         block,
         flags=re.IGNORECASE,
     ).strip()
+
+    # Elimina el alcance del objeto y cualquier texto posterior cuando viene pegado
+    # al campo OBJETO extraído.
+    block = OBJETO_ALCANCE_RE.sub("", block).strip()
 
     # Normaliza espacios sin borrar prefijos como 8029_1_85940 _GE_PSA_026.
     block = re.sub(r"\s+", " ", block)
