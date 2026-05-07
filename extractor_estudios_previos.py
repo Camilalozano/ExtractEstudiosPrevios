@@ -517,12 +517,12 @@ def main() -> None:
     output_dir = Path(output_dir_input.strip('"')).expanduser()
     output_path = output_dir / "estudios_previos_extraidos.xlsx"
 
-    rows = process_zip(zip_path)
-    export_rows_to_xlsx(rows, output_path)
-
-    metadata_input = input(
-        "Ingrese la ruta del archivo con  metadatos básicos del contrato asociados a cada uno de los Estudios Previo relacionados en SIGA"
-    ).strip()
+    if len(sys.argv) >= 4 and sys.argv[3].strip():
+        metadata_input = sys.argv[3].strip()
+    else:
+        metadata_input = input(
+            "Ingrese la ruta del archivo con  metadatos básicos del contrato asociados a cada uno de los Estudios Previo relacionados en SIGA"
+        ).strip()
 
     if not metadata_input:
         raise ValueError("Debe ingresar la ruta del archivo con metadatos de SIGA.")
@@ -531,6 +531,8 @@ def main() -> None:
     if not metadata_path.exists():
         raise FileNotFoundError(f"No existe el archivo de metadatos: {metadata_path}")
 
+    rows = process_zip(zip_path)
+    export_rows_to_xlsx(rows, output_path)
     merge_with_metadata(output_path, metadata_path)
     print(f"\nProceso terminado. Excel guardado en: {output_path}")
 
