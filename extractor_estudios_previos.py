@@ -29,9 +29,20 @@ OUTPUT_COLUMNS = [
     "extraccion_ok",
 ]
 
+FOOTER_DATA_POLICY_RE = (
+    r"Cualquier\s+copia\s+impresa\s+de\s+este\s+documento\s+se\s+considera\s+como\s+"
+    r"COPIA\s+NO\s+CONTROLADA\.?\s*"
+    r"(?:LOS\s+DATOS\s+PROPORCIONADOS\s+SER[ÁA]N\s+TRATADOS.*?"
+    r"https://agenciaatenea\.gov\.co/?\s*"
+    r"(?:VERSI[ÓO]N\s*:?\s*\d+\s*\d{1,2}/\d{1,2}/\d{4})?)?"
+)
+
 FOOTER_BLOCK_PATTERNS = [
-    r"\n?\s*\d+\s*\n\s*Formato de Estudios y Documentos Previos\s*[–-]\s*\n\s*Contrataci[oó]n Directa\s*\n\s*C[ÓO]DIGO:\s*F1_P11_C\s*\n\s*VERSI[ÓO]N:?\s*3\s*\n\s*Proceso Gesti[oó]n Contractual\s*\n\s*FECHA DE APROBACI[ÓO]N:?\s*\n\s*20/06/2024\s*\n\s*P[aá]gina\s*\d+\s*de\s*\d+\s*\n\s*Piensa en el medio ambiente antes de imprimir este documento\.\s*\n\s*Cualquier copia impresa de este documento se considera como COPIA NO CONTROLADA\s*\n\s*LOS DATOS PROPORCIONADOS SER[ÁA]N TRATADOS.*?https://agenciaatenea\.gov\.co/?\s*",
-    r"\n?\s*Piensa en el medio ambiente antes de imprimir este documento\.\s*\n\s*Cualquier copia impresa de este documento se considera como COPIA NO CONTROLADA\s*\n\s*LOS DATOS PROPORCIONADOS SER[ÁA]N TRATADOS.*?https://agenciaatenea\.gov\.co/?\s*",
+    r"\n?\s*\d+\s*\n\s*Formato de Estudios y Documentos Previos\s*[–-]\s*\n\s*Contrataci[oó]n Directa\s*\n\s*C[ÓO]DIGO:\s*F1_P11_C\s*\n\s*VERSI[ÓO]N:?\s*\d+\s*\n\s*Proceso Gesti[oó]n Contractual\s*\n\s*FECHA DE APROBACI[ÓO]N:?\s*\n\s*\d{1,2}/\d{1,2}/\d{4}\s*\n\s*P[aá]gina\s*\d+\s*de\s*\d+\s*\n\s*Piensa en el medio ambiente antes de imprimir este documento\.\s*\n\s*"
+    + FOOTER_DATA_POLICY_RE,
+    r"\n?\s*Piensa en el medio ambiente antes de imprimir este documento\.\s*\n\s*"
+    + FOOTER_DATA_POLICY_RE,
+    FOOTER_DATA_POLICY_RE,
 ]
 
 FOOTER_LINE_PATTERNS = [
@@ -39,15 +50,15 @@ FOOTER_LINE_PATTERNS = [
     r"^\s*Formato de Estudios y Documentos Previos\s*[–-]\s*$",
     r"^\s*Contrataci[oó]n Directa\s*$",
     r"^\s*C[ÓO]DIGO:\s*F1_P11_C\s*$",
-    r"^\s*VERSI[ÓO]N:?\s*3\s*$",
+    r"^\s*VERSI[ÓO]N:?\s*\d+\s*$",
     r"^\s*Proceso Gesti[oó]n Contractual\s*$",
     r"^\s*FECHA DE APROBACI[ÓO]N:?\s*$",
-    r"^\s*20/06/2024\s*$",
+    r"^\s*\d{1,2}/\d{1,2}/\d{4}\s*$",
     r"^\s*P[aá]gina\s*\d+\s*de\s*\d+\s*$",
     r"^\s*Piensa en el medio ambiente antes de imprimir este documento\.\s*$",
     r"^\s*Cualquier copia impresa de este documento se considera como COPIA NO CONTROLADA\s*$",
     r"^\s*LOS DATOS PROPORCIONADOS SER[ÁA]N TRATADOS.*$",
-    r"^\s*AGENCIA PUBLICDA EN LA P[ÁA]GINA WEB.*$",
+    r"^\s*AGENCIA PUBLICA?DA EN LA P[ÁA]GINA WEB.*$",
 ]
 
 
